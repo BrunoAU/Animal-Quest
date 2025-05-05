@@ -1,5 +1,16 @@
-# Projeto-G6
+# Animal Quest
 
-Neste repositório você vai aprender sobre como fazer o seu próprio Animal Quest.
+## HOW-TO-USE
 
-Para iniciar o Animal Quest você deve selecionar a opção de "START". Começando o jogo 4 animais serão apresentados e aleatoriamente um deles irá emmitir seu som, a partir disso você pode deve relacionar o som do animal e qual deles representa e selecionar o botão que tem a cor que representa o animal que emitiu o som. Em seguida será emitido uma mensagem a depender do resultado que você alcançou, se você acertou será emitida uma mensagem motivadora e no caso de você errar o som vai ser repetido e você deve repensar qual escolha fazer.
+Neste repositório você vai aprender sobre como fazer o seu próprio **Animal Quest**.
+
+Para iniciar o **Animal Quest**, você deve apertar qualquer botão ("Press any Button").
+
+Ao começar o jogo, quatro animais serão apresentados e um deles emitirá seu som. A partir disso, você deve relacionar o som do animal com o animal correto e selecionar o botão que tem a cor que representa o animal que emitiu o som.
+
+Em seguida, será emitida uma mensagem dependendo do resultado que você alcançou:
+
+- Se você **acertar**, será exibida uma mensagem de **reforço positivo**.
+- Se você **errar**, o som será repetido, e você deverá repensar qual escolha fazer com base na repetição do som do animal.
+
+Assim, você seguirá até o final do jogo.
