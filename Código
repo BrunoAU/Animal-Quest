@@ -1,0 +1,256 @@
+PARA TESTE:
+
+// === Pinos dos LEDs ===
+const int ledVerde = 10;
+const int ledVermelho = 11;
+
+// === Variáveis do jogo ===
+String variaveis[10] = {
+  "vermelho", "verde", "azul", "amarelo", "laranja",
+  "roxo", "rosa", "marrom", "cinza", "preto"
+};
+String selecionadas[4];
+String escolhida;
+
+// === Setup ===
+void setup() {
+  Serial.begin(9600);
+  randomSeed(analogRead(A0));
+
+  // Configura LEDs
+  pinMode(ledVerde, OUTPUT);
+  pinMode(ledVermelho, OUTPUT);
+
+  // Embaralha e seleciona 4 valores
+  for (int i = 9; i > 0; i--) {
+    int j = random(0, i + 1);
+    String temp = variaveis[i];
+    variaveis[i] = variaveis[j];
+    variaveis[j] = temp;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    selecionadas[i] = variaveis[i];
+    Serial.print("Selecionada ");
+    Serial.print(i + 1);
+    Serial.print(": ");
+    Serial.println(selecionadas[i]);
+  }
+
+  // Escolhe uma aleatória entre as 4
+  int indiceEscolhido = random(0, 4);
+  escolhida = selecionadas[indiceEscolhido];
+  Serial.print("Cor escolhida: ");
+  Serial.println(escolhida);
+
+  // Instrução para o usuário
+  Serial.println("Digite o nome da cor correta para testar:");
+}
+
+// === Loop ===
+void loop() {
+  if (Serial.available() > 0) {
+    String corDigitada = Serial.readStringUntil('\n');
+    corDigitada.trim(); // Remove espaços extras
+
+    // Verifica se a cor digitada é a correta
+    if (corDigitada.equalsIgnoreCase(escolhida)) {
+      Serial.println("Parabéns! Você escolheu a cor correta.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! A cor escolhida não é a correta.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+
+    // Espera o usuário pressionar uma tecla ou reiniciar o jogo
+    Serial.println("Digite o nome da cor correta para tentar novamente.");
+    delay(1000); // Um pequeno delay antes de aceitar uma nova entrada
+  }
+}
+
+
+
+CÓDIGO DE BOTÕES:
+
+// === Pinos dos botões por cor ===
+const int botaoVermelho = 2;
+const int botaoVerde = 3;
+const int botaoAzul = 4;
+const int botaoAmarelo = 5;
+const int botaoLaranja = 6;
+const int botaoRoxo = 7;
+const int botaoRosa = 8;
+const int botaoMarrom = 9;
+
+// === Pinos dos LEDs ===
+const int ledVerde = 10;
+const int ledVermelho = 11;
+
+// === Variáveis de debounce ===
+const unsigned long debounceDelay = 200;
+unsigned long tempoBotao[8] = {0};  // Um para cada botão
+
+// === Variáveis do jogo ===
+String variaveis[10] = {
+  "vermelho", "verde", "azul", "amarelo", "laranja",
+  "roxo", "rosa", "marrom", "cinza", "preto"
+};
+String selecionadas[4];
+String escolhida;
+
+// === Setup ===
+void setup() {
+  Serial.begin(9600);
+  randomSeed(analogRead(A0));
+
+  // Configura botões
+  pinMode(botaoVermelho, INPUT);
+  pinMode(botaoVerde, INPUT);
+  pinMode(botaoAzul, INPUT);
+  pinMode(botaoAmarelo, INPUT);
+  pinMode(botaoLaranja, INPUT);
+  pinMode(botaoRoxo, INPUT);
+  pinMode(botaoRosa, INPUT);
+  pinMode(botaoMarrom, INPUT);
+
+  // Configura LEDs
+  pinMode(ledVerde, OUTPUT);
+  pinMode(ledVermelho, OUTPUT);
+
+  // Embaralha e seleciona 4 valores
+  for (int i = 9; i > 0; i--) {
+    int j = random(0, i + 1);
+    String temp = variaveis[i];
+    variaveis[i] = variaveis[j];
+    variaveis[j] = temp;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    selecionadas[i] = variaveis[i];
+    Serial.print("Selecionada ");
+    Serial.print(i + 1);
+    Serial.print(": ");
+    Serial.println(selecionadas[i]);
+  }
+
+  // Escolhe uma aleatória entre as 4
+  int indiceEscolhido = random(0, 4);
+  escolhida = selecionadas[indiceEscolhido];
+  Serial.print("Cor escolhida: ");
+  Serial.println(escolhida);
+}
+
+// === Loop ===
+void loop() {
+  unsigned long agora = millis();
+
+  // Leitura de botões para ver se o botão correto foi pressionado
+  if (digitalRead(botaoVermelho) == HIGH && agora - tempoBotao[0] >= debounceDelay) {
+    if (escolhida == "vermelho") {
+      Serial.println("Parabéns! Você apertou o botão VERMELHO.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! O botão VERMELHO não era o correto.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+    tempoBotao[0] = agora;
+  }
+
+  if (digitalRead(botaoVerde) == HIGH && agora - tempoBotao[1] >= debounceDelay) {
+    if (escolhida == "verde") {
+      Serial.println("Parabéns! Você apertou o botão VERDE.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! O botão VERDE não era o correto.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+    tempoBotao[1] = agora;
+  }
+
+  if (digitalRead(botaoAzul) == HIGH && agora - tempoBotao[2] >= debounceDelay) {
+    if (escolhida == "azul") {
+      Serial.println("Parabéns! Você apertou o botão AZUL.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! O botão AZUL não era o correto.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+    tempoBotao[2] = agora;
+  }
+
+  if (digitalRead(botaoAmarelo) == HIGH && agora - tempoBotao[3] >= debounceDelay) {
+    if (escolhida == "amarelo") {
+      Serial.println("Parabéns! Você apertou o botão AMARELO.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! O botão AMARELO não era o correto.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+    tempoBotao[3] = agora;
+  }
+
+  if (digitalRead(botaoLaranja) == HIGH && agora - tempoBotao[4] >= debounceDelay) {
+    if (escolhida == "laranja") {
+      Serial.println("Parabéns! Você apertou o botão LARANJA.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! O botão LARANJA não era o correto.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+    tempoBotao[4] = agora;
+  }
+
+  if (digitalRead(botaoRoxo) == HIGH && agora - tempoBotao[5] >= debounceDelay) {
+    if (escolhida == "roxo") {
+      Serial.println("Parabéns! Você apertou o botão ROXO.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! O botão ROXO não era o correto.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+    tempoBotao[5] = agora;
+  }
+
+  if (digitalRead(botaoRosa) == HIGH && agora - tempoBotao[6] >= debounceDelay) {
+    if (escolhida == "rosa") {
+      Serial.println("Parabéns! Você apertou o botão ROSA.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! O botão ROSA não era o correto.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+    tempoBotao[6] = agora;
+  }
+
+  if (digitalRead(botaoMarrom) == HIGH && agora - tempoBotao[7] >= debounceDelay) {
+    if (escolhida == "marrom") {
+      Serial.println("Parabéns! Você apertou o botão MARROM.");
+      digitalWrite(ledVerde, HIGH);  // Acende LED verde
+      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
+    } else {
+      Serial.println("Errado! O botão MARROM não era o correto.");
+      digitalWrite(ledVerde, LOW);   // Apaga LED verde
+      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
+    }
+    tempoBotao[7] = agora;
+  }
+}
+
+Esse é o código real, mas não dá pra testar sem a parte física
+
