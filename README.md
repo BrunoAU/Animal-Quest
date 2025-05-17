@@ -4,6 +4,8 @@
 
 Neste repositório você vai aprender sobre como fazer o seu próprio **Animal Quest**.
 
+Antes de começar o **Animal Quest** haverá um tutorial 100% digital para explicar a dinâmica do jogo de forma leve e interativa.
+
 Para iniciar o **Animal Quest**, você deve apertar qualquer botão ("Press any Button").
 
 Ao começar o jogo, quatro animais serão apresentados e um deles emitirá seu som. A partir disso, você deve relacionar o som do animal com o animal correto e selecionar o botão que tem a cor que representa o animal que emitiu o som.
