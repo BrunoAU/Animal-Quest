@@ -1,256 +1,68 @@
-PARA TESTE:
+import os
+import random
+import pygame
 
-// === Pinos dos LEDs ===
-const int ledVerde = 10;
-const int ledVermelho = 11;
+# Caminho para a pasta onde estão os arquivos de som
+PASTA_SONS = r"C:\Users\nlpsl\Downloads\Sons"
 
-// === Variáveis do jogo ===
-String variaveis[10] = {
-  "vermelho", "verde", "azul", "amarelo", "laranja",
-  "roxo", "rosa", "marrom", "cinza", "preto"
-};
-String selecionadas[4];
-String escolhida;
+# Sons disponíveis: (cor, nome do arquivo de som)
+SONS_BOTOES = [
+    ("azul", "Som_baleia.mp3"),
+    ("branco", "Som_ovelha.mp3"),
+    ("preto", "Som_gato.mp3"),
+    ("verde", "Som_sapo.mp3"),
+    ("amarelo", "Som_pintinho.mp3"),
+    ("vermelho", "Som_cobra.mp3"),
+    ("laranja", "Som_tigre.mp3"),
+    ("rosa", "Som_porco.mp3")
+]
 
-// === Setup ===
-void setup() {
-  Serial.begin(9600);
-  randomSeed(analogRead(A0));
-
-  // Configura LEDs
-  pinMode(ledVerde, OUTPUT);
-  pinMode(ledVermelho, OUTPUT);
-
-  // Embaralha e seleciona 4 valores
-  for (int i = 9; i > 0; i--) {
-    int j = random(0, i + 1);
-    String temp = variaveis[i];
-    variaveis[i] = variaveis[j];
-    variaveis[j] = temp;
-  }
-
-  for (int i = 0; i < 4; i++) {
-    selecionadas[i] = variaveis[i];
-    Serial.print("Selecionada ");
-    Serial.print(i + 1);
-    Serial.print(": ");
-    Serial.println(selecionadas[i]);
-  }
-
-  // Escolhe uma aleatória entre as 4
-  int indiceEscolhido = random(0, 4);
-  escolhida = selecionadas[indiceEscolhido];
-  Serial.print("Cor escolhida: ");
-  Serial.println(escolhida);
-
-  // Instrução para o usuário
-  Serial.println("Digite o nome da cor correta para testar:");
-}
-
-// === Loop ===
-void loop() {
-  if (Serial.available() > 0) {
-    String corDigitada = Serial.readStringUntil('\n');
-    corDigitada.trim(); // Remove espaços extras
-
-    // Verifica se a cor digitada é a correta
-    if (corDigitada.equalsIgnoreCase(escolhida)) {
-      Serial.println("Parabéns! Você escolheu a cor correta.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! A cor escolhida não é a correta.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-
-    // Espera o usuário pressionar uma tecla ou reiniciar o jogo
-    Serial.println("Digite o nome da cor correta para tentar novamente.");
-    delay(1000); // Um pequeno delay antes de aceitar uma nova entrada
-  }
-}
+# Verifica se todos os arquivos existem e têm a extensão correta
+def verificar_extensoes():
+    for cor, arquivo in SONS_BOTOES:
+        caminho_arquivo = os.path.join(PASTA_SONS, arquivo)
+        if not os.path.exists(caminho_arquivo):
+            print(f"❌ Arquivo não encontrado: {caminho_arquivo}")
+        elif not arquivo.endswith(".mp3"):
+            print(f"⚠️ Arquivo com extensão incorreta: {arquivo}")
+        else:
+            print(f"✅ {arquivo} (ok)")
 
 
+# Função para tocar o som usando pygame
+def tocar_som(arquivo):
+    caminho = os.path.join(PASTA_SONS, arquivo)
+    print(f"🔊 Tentando tocar som: {caminho}")
+    try:
+        pygame.mixer.init()
+        pygame.mixer.music.load(caminho)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            continue  # Espera o som terminar
+    except Exception as e:
+        print(f"⚠️ Erro ao tocar som: {e}")
 
-CÓDIGO DE BOTÕES:
+# Programa principal (exemplo simples de teste)
+if __name__ == "__main__":
+    pygame.init()
+    verificar_extensoes()
 
-// === Pinos dos botões por cor ===
-const int botaoVermelho = 2;
-const int botaoVerde = 3;
-const int botaoAzul = 4;
-const int botaoAmarelo = 5;
-const int botaoLaranja = 6;
-const int botaoRoxo = 7;
-const int botaoRosa = 8;
-const int botaoMarrom = 9;
+    # Escolhe um som aleatório
+    cor_correta, som_correto = random.choice(SONS_BOTOES)
+    print(f"\n🧠 O som correto é para o botão: {cor_correta}")
 
-// === Pinos dos LEDs ===
-const int ledVerde = 10;
-const int ledVermelho = 11;
+    tentativas = 0
+    while tentativas < 3:
+        print(f"\n🎵 Reproduzindo o som... Tentativa {tentativas + 1}")
+        tocar_som(som_correto)
 
-// === Variáveis de debounce ===
-const unsigned long debounceDelay = 200;
-unsigned long tempoBotao[8] = {0};  // Um para cada botão
+        resposta = input("👉 Pressione o botão (cor) que você acha que é o som: ").strip().lower()
+        if resposta == cor_correta:
+            print("✅ Acertou!")
+            break
+        else:
+            print("❌ Errado!")
+            tentativas += 1
 
-// === Variáveis do jogo ===
-String variaveis[10] = {
-  "vermelho", "verde", "azul", "amarelo", "laranja",
-  "roxo", "rosa", "marrom", "cinza", "preto"
-};
-String selecionadas[4];
-String escolhida;
-
-// === Setup ===
-void setup() {
-  Serial.begin(9600);
-  randomSeed(analogRead(A0));
-
-  // Configura botões
-  pinMode(botaoVermelho, INPUT);
-  pinMode(botaoVerde, INPUT);
-  pinMode(botaoAzul, INPUT);
-  pinMode(botaoAmarelo, INPUT);
-  pinMode(botaoLaranja, INPUT);
-  pinMode(botaoRoxo, INPUT);
-  pinMode(botaoRosa, INPUT);
-  pinMode(botaoMarrom, INPUT);
-
-  // Configura LEDs
-  pinMode(ledVerde, OUTPUT);
-  pinMode(ledVermelho, OUTPUT);
-
-  // Embaralha e seleciona 4 valores
-  for (int i = 9; i > 0; i--) {
-    int j = random(0, i + 1);
-    String temp = variaveis[i];
-    variaveis[i] = variaveis[j];
-    variaveis[j] = temp;
-  }
-
-  for (int i = 0; i < 4; i++) {
-    selecionadas[i] = variaveis[i];
-    Serial.print("Selecionada ");
-    Serial.print(i + 1);
-    Serial.print(": ");
-    Serial.println(selecionadas[i]);
-  }
-
-  // Escolhe uma aleatória entre as 4
-  int indiceEscolhido = random(0, 4);
-  escolhida = selecionadas[indiceEscolhido];
-  Serial.print("Cor escolhida: ");
-  Serial.println(escolhida);
-}
-
-// === Loop ===
-void loop() {
-  unsigned long agora = millis();
-
-  // Leitura de botões para ver se o botão correto foi pressionado
-  if (digitalRead(botaoVermelho) == HIGH && agora - tempoBotao[0] >= debounceDelay) {
-    if (escolhida == "vermelho") {
-      Serial.println("Parabéns! Você apertou o botão VERMELHO.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! O botão VERMELHO não era o correto.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-    tempoBotao[0] = agora;
-  }
-
-  if (digitalRead(botaoVerde) == HIGH && agora - tempoBotao[1] >= debounceDelay) {
-    if (escolhida == "verde") {
-      Serial.println("Parabéns! Você apertou o botão VERDE.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! O botão VERDE não era o correto.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-    tempoBotao[1] = agora;
-  }
-
-  if (digitalRead(botaoAzul) == HIGH && agora - tempoBotao[2] >= debounceDelay) {
-    if (escolhida == "azul") {
-      Serial.println("Parabéns! Você apertou o botão AZUL.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! O botão AZUL não era o correto.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-    tempoBotao[2] = agora;
-  }
-
-  if (digitalRead(botaoAmarelo) == HIGH && agora - tempoBotao[3] >= debounceDelay) {
-    if (escolhida == "amarelo") {
-      Serial.println("Parabéns! Você apertou o botão AMARELO.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! O botão AMARELO não era o correto.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-    tempoBotao[3] = agora;
-  }
-
-  if (digitalRead(botaoLaranja) == HIGH && agora - tempoBotao[4] >= debounceDelay) {
-    if (escolhida == "laranja") {
-      Serial.println("Parabéns! Você apertou o botão LARANJA.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! O botão LARANJA não era o correto.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-    tempoBotao[4] = agora;
-  }
-
-  if (digitalRead(botaoRoxo) == HIGH && agora - tempoBotao[5] >= debounceDelay) {
-    if (escolhida == "roxo") {
-      Serial.println("Parabéns! Você apertou o botão ROXO.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! O botão ROXO não era o correto.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-    tempoBotao[5] = agora;
-  }
-
-  if (digitalRead(botaoRosa) == HIGH && agora - tempoBotao[6] >= debounceDelay) {
-    if (escolhida == "rosa") {
-      Serial.println("Parabéns! Você apertou o botão ROSA.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! O botão ROSA não era o correto.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-    tempoBotao[6] = agora;
-  }
-
-  if (digitalRead(botaoMarrom) == HIGH && agora - tempoBotao[7] >= debounceDelay) {
-    if (escolhida == "marrom") {
-      Serial.println("Parabéns! Você apertou o botão MARROM.");
-      digitalWrite(ledVerde, HIGH);  // Acende LED verde
-      digitalWrite(ledVermelho, LOW); // Apaga LED vermelho
-    } else {
-      Serial.println("Errado! O botão MARROM não era o correto.");
-      digitalWrite(ledVerde, LOW);   // Apaga LED verde
-      digitalWrite(ledVermelho, HIGH); // Acende LED vermelho
-    }
-    tempoBotao[7] = agora;
-  }
-}
-
-Esse é o código real, mas não dá pra testar sem a parte física
-
+    if tentativas == 3:
+        print(f"😢 Você errou. A resposta correta era: {cor_correta}")
