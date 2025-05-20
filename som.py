@@ -1,75 +1,68 @@
 import os
 import random
-from playsound import playsound
+import pygame
 
-# Caminho para a pasta de sons
-PASTA_SONS =  #Caminho do arquivo com os sons
+# Caminho para a pasta onde estão os arquivos de som
+PASTA_SONS = r"C:\Users\nlpsl\Downloads\Sons"
 
-# Sons disponíveis (certifique-se de que os nomes estão corretos)
+# Sons disponíveis: (cor, nome do arquivo de som)
 SONS_BOTOES = [
-    ("azul",    "Som_baleia.mp3"),
-    ("branco",  "Som_ovelha.mp3"),
-    ("preto",   "Som_gato.mp3"),
-    ("verde",   "Som_sapo.mp3"),
+    ("azul", "Som_baleia.mp3"),
+    ("branco", "Som_ovelha.mp3"),
+    ("preto", "Som_gato.mp3"),
+    ("verde", "Som_sapo.mp3"),
     ("amarelo", "Som_pintinho.mp3"),
-    ("vermelho","Som_cobra.mp3"),
+    ("vermelho", "Som_cobra.mp3"),
     ("laranja", "Som_tigre.mp3"),
-    ("rosa",    "Som_porco.mp3"),
+    ("rosa", "Som_porco.mp3")
 ]
 
 # Verifica se todos os arquivos existem e têm a extensão correta
 def verificar_extensoes():
     for cor, arquivo in SONS_BOTOES:
-        caminho = os.path.join(PASTA_SONS, arquivo)
-        if not os.path.isfile(caminho):
-            print(f"❌ Arquivo não encontrado: {caminho}")
+        caminho_arquivo = os.path.join(PASTA_SONS, arquivo)
+        if not os.path.exists(caminho_arquivo):
+            print(f"❌ Arquivo não encontrado: {caminho_arquivo}")
         elif not arquivo.endswith(".mp3"):
-            print(f"⚠ Arquivo com extensão incorreta: {arquivo}")
+            print(f"⚠️ Arquivo com extensão incorreta: {arquivo}")
         else:
             print(f"✅ {arquivo} (ok)")
 
-# Função para tocar o som
+
+# Função para tocar o som usando pygame
 def tocar_som(arquivo):
     caminho = os.path.join(PASTA_SONS, arquivo)
     print(f"🔊 Tentando tocar som: {caminho}")
     try:
-        playsound(caminho)
+        pygame.mixer.init()
+        pygame.mixer.music.load(caminho)
+        pygame.mixer.music.play()
+        while pygame.mixer.music.get_busy():
+            continue  # Espera o som terminar
     except Exception as e:
-        print(f"⚠ Erro ao tocar som: {e}")
+        print(f"⚠️ Erro ao tocar som: {e}")
 
-# Função principal
-def main():
-    # Verifica se a pasta existe
-    if not os.path.exists(PASTA_SONS):
-        print(f"🚫 Pasta de sons não encontrada: {PASTA_SONS}")
-        return
-
-    # Verifica os arquivos antes de começar
+# Programa principal (exemplo simples de teste)
+if __name__ == "__main__":
+    pygame.init()
     verificar_extensoes()
 
     # Escolhe um som aleatório
-    botao_correto, arquivo_som = random.choice(SONS_BOTOES)
-    print(f"🎯 O som correto é para o botão: {botao_correto}")
-    tocar_som(arquivo_som)
+    cor_correta, som_correto = random.choice(SONS_BOTOES)
+    print(f"\n🧠 O som correto é para o botão: {cor_correta}")
 
     tentativas = 0
-    acertou = False
+    while tentativas < 3:
+        print(f"\n🎵 Reproduzindo o som... Tentativa {tentativas + 1}")
+        tocar_som(som_correto)
 
-    # Testa as tentativas
-    while tentativas < 2 and not acertou:
-        resposta = input("🎮 Pressione o botão (cor) que você acha que é o som: ").strip().lower()
-        if resposta == botao_correto:
-            print("🎉 Acertou!")
-            acertou = True
+        resposta = input("👉 Pressione o botão (cor) que você acha que é o som: ").strip().lower()
+        if resposta == cor_correta:
+            print("✅ Acertou!")
+            break
         else:
+            print("❌ Errado!")
             tentativas += 1
-            print(f"❌ Errado! Tentativa {tentativas}/2")
-            if tentativas < 2:
-                print("🔁 Repetindo o som...")
-                tocar_som(arquivo_som)
-            else:
-                print(f"💥 Fim das tentativas. O som era: {botao_correto}.")
 
-# Executa o script
-if __name__ == "__main__":
-    main()
+    if tentativas == 3:
+        print(f"😢 Você errou. A resposta correta era: {cor_correta}")
