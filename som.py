@@ -1,68 +1,50 @@
-import os
-import random
+import serial
 import pygame
+import os
 
-# Caminho para a pasta onde estão os arquivos de som
-PASTA_SONS = r"C:\Users\nlpsl\Downloads\Sons"
+# Inicializa o mixer do pygame
+pygame.mixer.init()
 
-# Sons disponíveis: (cor, nome do arquivo de som)
-SONS_BOTOES = [
-    ("azul", "Som_baleia.mp3"),
-    ("branco", "Som_ovelha.mp3"),
-    ("preto", "Som_gato.mp3"),
-    ("verde", "Som_sapo.mp3"),
-    ("amarelo", "Som_pintinho.mp3"),
-    ("vermelho", "Som_cobra.mp3"),
-    ("laranja", "Som_tigre.mp3"),
-    ("rosa", "Som_porco.mp3")
-]
+# Pasta onde estão os sons
+PASTA_SONS = os.path.join(os.path.dirname(__file__), 'sons')
 
-# Verifica se todos os arquivos existem e têm a extensão correta
-def verificar_extensoes():
-    for cor, arquivo in SONS_BOTOES:
-        caminho_arquivo = os.path.join(PASTA_SONS, arquivo)
-        if not os.path.exists(caminho_arquivo):
-            print(f"❌ Arquivo não encontrado: {caminho_arquivo}")
-        elif not arquivo.endswith(".mp3"):
-            print(f"⚠️ Arquivo com extensão incorreta: {arquivo}")
-        else:
-            print(f"✅ {arquivo} (ok)")
+# Mapeamento de sons (ajuste conforme quiser)
+sons = {
+    "1": "Som_baleia.mp3",
+    "2": "Som_cobra.mp3",
+    "3": "Som_gato.mp3",
+    "4": "Som_ovelha.mp3",
+    "5": "Som_pintinho.mp3",
+    "6": "Som_porco.mp3",
+    "7": "Som_sapo.mp3",
+    "8": "Som_tigre.mp3"
+}
 
+# Configuração da porta serial
+porta_serial = 'COM5'  # Altere conforme necessário
+baud_rate = 9600
+ser = serial.Serial(porta_serial, baud_rate)
 
-# Função para tocar o som usando pygame
-def tocar_som(arquivo):
-    caminho = os.path.join(PASTA_SONS, arquivo)
-    print(f"🔊 Tentando tocar som: {caminho}")
-    try:
-        pygame.mixer.init()
-        pygame.mixer.music.load(caminho)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            continue  # Espera o som terminar
-    except Exception as e:
-        print(f"⚠️ Erro ao tocar som: {e}")
+print(f'Conectado à {porta_serial}, aguardando comando...')
 
-# Programa principal (exemplo simples de teste)
-if __name__ == "__main__":
-    pygame.init()
-    verificar_extensoes()
+try:
+    while True:
+        if ser.in_waiting:
+            linha = ser.readline().decode('utf-8').strip()
+            print(f"Recebido: {linha}")
 
-    # Escolhe um som aleatório
-    cor_correta, som_correto = random.choice(SONS_BOTOES)
-    print(f"\n🧠 O som correto é para o botão: {cor_correta}")
-
-    tentativas = 0
-    while tentativas < 3:
-        print(f"\n🎵 Reproduzindo o som... Tentativa {tentativas + 1}")
-        tocar_som(som_correto)
-
-        resposta = input("👉 Pressione o botão (cor) que você acha que é o som: ").strip().lower()
-        if resposta == cor_correta:
-            print("✅ Acertou!")
-            break
-        else:
-            print("❌ Errado!")
-            tentativas += 1
-
-    if tentativas == 3:
-        print(f"😢 Você errou. A resposta correta era: {cor_correta}")
+            if linha.startswith("COR:"):
+                cor = linha.split(":")[1].strip()
+                if cor in sons:
+                    caminho_som = os.path.join(PASTA_SONS, sons[cor])
+                    print(f"Tocando som: {caminho_som}")
+                    pygame.mixer.music.load(caminho_som)
+                    pygame.mixer.music.play()
+                    while pygame.mixer.music.get_busy():
+                        continue
+                else:
+                    print("Cor recebida não está mapeada para nenhum som.")
+except KeyboardInterrupt:
+    print("Encerrando programa.")
+finally:
+    ser.close()
