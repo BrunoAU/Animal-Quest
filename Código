@@ -1,68 +1,146 @@
-import os
-import random
-import pygame
+#Código (Master-Mega)
 
-# Caminho para a pasta onde estão os arquivos de som
-PASTA_SONS = r"C:\Users\nlpsl\Downloads\Sons"
+const int numCores = 8;
+const int numSlaves = 3;
 
-# Sons disponíveis: (cor, nome do arquivo de som)
-SONS_BOTOES = [
-    ("azul", "Som_baleia.mp3"),
-    ("branco", "Som_ovelha.mp3"),
-    ("preto", "Som_gato.mp3"),
-    ("verde", "Som_sapo.mp3"),
-    ("amarelo", "Som_pintinho.mp3"),
-    ("vermelho", "Som_cobra.mp3"),
-    ("laranja", "Som_tigre.mp3"),
-    ("rosa", "Som_porco.mp3")
-]
+int cores[numCores] = {1,2,3,4,5,6,7,8};
+int coresSelecionadas[numSlaves];
+int corCorreta = 0;
+bool aguardandoAcerto = false;
+int tentativasRestantes = 0;
 
-# Verifica se todos os arquivos existem e têm a extensão correta
-def verificar_extensoes():
-    for cor, arquivo in SONS_BOTOES:
-        caminho_arquivo = os.path.join(PASTA_SONS, arquivo)
-        if not os.path.exists(caminho_arquivo):
-            print(f"❌ Arquivo não encontrado: {caminho_arquivo}")
-        elif not arquivo.endswith(".mp3"):
-            print(f"⚠️ Arquivo com extensão incorreta: {arquivo}")
-        else:
-            print(f"✅ {arquivo} (ok)")
+void embaralharCores() {
+  for (int i = numCores - 1; i > 0; i--) {
+    int j = random(i + 1);
+    int temp = cores[i];
+    cores[i] = cores[j];
+    cores[j] = temp;
+  }
+}
+
+void setup() {
+  Serial.begin(9600);     
+  Serial1.begin(9600);    
+  Serial2.begin(9600);    
+  Serial3.begin(9600);    
+
+  randomSeed(analogRead(0));
+}
+
+void loop() {
+  if (!aguardandoAcerto) {
+    embaralharCores();
+    for (int i = 0; i < numSlaves; i++) {
+      coresSelecionadas[i] = cores[i];
+    }
+
+    int indiceCorreta = random(numSlaves);
+    corCorreta = coresSelecionadas[indiceCorreta];
+
+    Serial1.write(coresSelecionadas[0]);
+    Serial2.write(coresSelecionadas[1]);
+    Serial3.write(coresSelecionadas[2]);
+
+    Serial.println("Cores enviadas:");
+    for (int i = 0; i < numSlaves; i++) {
+      Serial.print("Slave ");
+      Serial.print(i + 1);
+      Serial.print(": Cor ");
+      Serial.println(coresSelecionadas[i]);
+    }
+
+    Serial.print("Cor correta: ");
+    Serial.println(corCorreta);
+
+    // ✅ Envia comando para o Python
+    Serial.print("COR:");
+    Serial.println(corCorreta);
+
+    tentativasRestantes = 2;
+    aguardandoAcerto = true;
+
+    Serial.print("Digite o número da cor correta. Você tem ");
+    Serial.print(tentativasRestantes);
+    Serial.println(" tentativas. Pressione ENTER após digitar:");
+  }
+
+  if (aguardandoAcerto && Serial.available()) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+
+    if (input.length() > 0) {
+      int tentativa = input.toInt();
+      Serial.print("Você digitou: ");
+      Serial.println(tentativa);
+
+      if (tentativa == corCorreta) {
+        Serial.println("Parabéns, você acertou! :)");
+
+        Serial1.write(0);
+        Serial2.write(0);
+        Serial3.write(0);
+
+        aguardandoAcerto = false;
+        delay(2000);
+      } else {
+        tentativasRestantes--;
+        if (tentativasRestantes > 0) {
+          Serial.print("Não foi dessa vez, mas continue tentando! :) Restam ");
+          Serial.print(tentativasRestantes);
+          Serial.println(" tentativa(s).");
+        } else {
+          Serial.println("Que pena! Suas tentativas acabaram. Reiniciando o jogo...");
+
+          Serial1.write(0);
+          Serial2.write(0);
+          Serial3.write(0);
+
+          aguardandoAcerto = false;
+          delay(2000);
+        }
+      }
+    }
+  }
+}
 
 
-# Função para tocar o som usando pygame
-def tocar_som(arquivo):
-    caminho = os.path.join(PASTA_SONS, arquivo)
-    print(f"🔊 Tentando tocar som: {caminho}")
-    try:
-        pygame.mixer.init()
-        pygame.mixer.music.load(caminho)
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            continue  # Espera o som terminar
-    except Exception as e:
-        print(f"⚠️ Erro ao tocar som: {e}")
 
-# Programa principal (exemplo simples de teste)
-if __name__ == "__main__":
-    pygame.init()
-    verificar_extensoes()
+#Código (Slave-Unos)
 
-    # Escolhe um som aleatório
-    cor_correta, som_correto = random.choice(SONS_BOTOES)
-    print(f"\n🧠 O som correto é para o botão: {cor_correta}")
+#include <SoftwareSerial.h>
 
-    tentativas = 0
-    while tentativas < 3:
-        print(f"\n🎵 Reproduzindo o som... Tentativa {tentativas + 1}")
-        tocar_som(som_correto)
+#define RX_PIN 10
+#define TX_PIN 11
 
-        resposta = input("👉 Pressione o botão (cor) que você acha que é o som: ").strip().lower()
-        if resposta == cor_correta:
-            print("✅ Acertou!")
-            break
-        else:
-            print("❌ Errado!")
-            tentativas += 1
+SoftwareSerial mySerial(RX_PIN, TX_PIN); // RX, TX
 
-    if tentativas == 3:
-        print(f"😢 Você errou. A resposta correta era: {cor_correta}")
+int corRecebida = 0;
+bool travado = false;
+
+void setup() {
+  mySerial.begin(9600);
+  Serial.begin(9600);
+}
+
+void loop() {
+  if (mySerial.available() > 0) {
+    int dado = mySerial.read();
+
+    if (dado == 0) {
+      // Comando de destravar
+      travado = false;
+      Serial.println("Destravado, aguardando nova cor...");
+    } else if (!travado) {
+      corRecebida = dado;
+      travado = true;
+
+      // Mostra a cor recebida
+      Serial.print("Cor recebida e travada: ");
+      Serial.println(corRecebida);
+
+      // Aqui pode acionar um LED correspondente à cor
+    }
+  }
+
+  // Se travado, pode manter o LED ligado ou fazer outra ação
+}
