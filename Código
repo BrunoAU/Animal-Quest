@@ -1,4 +1,4 @@
-#Código (Master-Mega)
+🟦 Código (Master-Mega)
 
 const int numCores = 8;
 const int numSlaves = 3;
@@ -105,7 +105,8 @@ void loop() {
 
 
 
-#Código (Slave-Unos)
+
+Código (Slave-Unos)
 
 #include <SoftwareSerial.h>
 
