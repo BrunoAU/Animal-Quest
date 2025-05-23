@@ -72,21 +72,15 @@ import serial  # Comunicação serial com Arduino
 Para ambientes Windows:
 
 bash
-Copiar
-Editar
 pip install playsound==1.2.2
 pip install pyserial
 Para ambientes macOS/Linux (opcional):
 
 bash
-Copiar
-Editar
 pip install pygame
 ou
 
 bash
-Copiar
-Editar
 pip install simpleaudio
 ⚙️ Arquitetura do Projeto
 🖥 Comunicação:
@@ -117,8 +111,6 @@ Reproduz o som via playsound.
 Pode abrir pasta de sons automaticamente.
 
 🗂 Estrutura de Pastas
-Copiar
-Editar
 AnimalQuest/
 ├── sons/
 │   ├── Som_baleia.mp3
@@ -145,8 +137,6 @@ Faça upload dos códigos .ino para cada placa.
 Execute o Python:
 
 bash
-Copiar
-Editar
 python tocar_som.py
 No Serial Monitor do Arduino IDE, siga as instruções para jogar.
 
