@@ -9,6 +9,10 @@ int corCorreta = 0;
 bool aguardandoAcerto = false;
 int tentativasRestantes = 0;
 
+// === Mapeamento dos botões ===
+const int botoes[numCores] = {2, 3, 4, 5, 6, 7, 8, 9};  
+const char letras[numCores] = {'p','v','a','b','c','d','e','f'};  
+
 void embaralharCores() {
   for (int i = numCores - 1; i > 0; i--) {
     int j = random(i + 1);
@@ -24,6 +28,10 @@ void setup() {
   Serial2.begin(9600);    
   Serial3.begin(9600);    
 
+  for(int i = 0; i < numCores; i++) {
+    pinMode(botoes[i], INPUT_PULLUP);  
+  }
+
   randomSeed(analogRead(0));
 }
 
@@ -37,6 +45,7 @@ void loop() {
     int indiceCorreta = random(numSlaves);
     corCorreta = coresSelecionadas[indiceCorreta];
 
+    // Envia para os slaves
     Serial1.write(coresSelecionadas[0]);
     Serial2.write(coresSelecionadas[1]);
     Serial3.write(coresSelecionadas[2]);
@@ -52,52 +61,65 @@ void loop() {
     Serial.print("Cor correta: ");
     Serial.println(corCorreta);
 
-    // ✅ Envia comando para o Python
+    // Envia para o Python o som
     Serial.print("COR:");
     Serial.println(corCorreta);
 
     tentativasRestantes = 2;
     aguardandoAcerto = true;
 
-    Serial.print("Digite o número da cor correta. Você tem ");
-    Serial.print(tentativasRestantes);
-    Serial.println(" tentativas. Pressione ENTER após digitar:");
+    Serial.println("Aguardando tentativa via botões...");
   }
 
-  if (aguardandoAcerto && Serial.available()) {
-    String input = Serial.readStringUntil('\n');
-    input.trim();
+  if (aguardandoAcerto) {
+    for(int i = 0; i < numCores; i++) {
+      if (digitalRead(botoes[i]) == LOW) {  
+        delay(200);  
 
-    if (input.length() > 0) {
-      int tentativa = input.toInt();
-      Serial.print("Você digitou: ");
-      Serial.println(tentativa);
+        char letra = letras[i];
+        int tentativa = cores[i];  
 
-      if (tentativa == corCorreta) {
-        Serial.println("Parabéns, você acertou! :)");
+        Serial.print("Botão pressionado: ");
+        Serial.print(letra);
+        Serial.print(" → Tentativa: ");
+        Serial.println(tentativa);
 
-        Serial1.write(0);
-        Serial2.write(0);
-        Serial3.write(0);
-
-        aguardandoAcerto = false;
-        delay(2000);
-      } else {
-        tentativasRestantes--;
-        if (tentativasRestantes > 0) {
-          Serial.print("Não foi dessa vez, mas continue tentando! :) Restam ");
-          Serial.print(tentativasRestantes);
-          Serial.println(" tentativa(s).");
-        } else {
-          Serial.println("Que pena! Suas tentativas acabaram. Reiniciando o jogo...");
+        if (tentativa == corCorreta) {
+          Serial.println("Parabéns, você acertou! :)");
 
           Serial1.write(0);
+          Serial1.write('O');
           Serial2.write(0);
+          Serial2.write('O');
           Serial3.write(0);
+          Serial3.write('O');
 
           aguardandoAcerto = false;
           delay(2000);
+        } else {
+          tentativasRestantes--;
+          if (tentativasRestantes > 0) {
+            Serial.print("Não foi dessa vez! Restam ");
+            Serial.print(tentativasRestantes);
+            Serial.println(" tentativa(s).");
+
+            // 🔥 Repete o som após erro
+            Serial.print("COR:");
+            Serial.println(corCorreta);
+          } else {
+            Serial.println("Que pena! Suas tentativas acabaram. Reiniciando o jogo...");
+
+            Serial1.write(0);
+            Serial2.write(0);
+            Serial3.write(0);
+
+            aguardandoAcerto = false;
+            delay(2000);
+          }
         }
+
+        // Debounce — espera o botão ser solto
+        while(digitalRead(botoes[i]) == LOW) { delay(10); }
       }
     }
   }
@@ -108,40 +130,188 @@ void loop() {
 
 Código (Slave-Unos)
 
-#include <SoftwareSerial.h>
+#include <Adafruit_GFX.h>
+#include <MCUFRIEND_kbv.h>
+#include <SPI.h>
+#include <SD.h>
 
-#define RX_PIN 10
-#define TX_PIN 11
+// === Display e SD ===
+#define SD_CS 10  // Pino do cartão SD no display
 
-SoftwareSerial mySerial(RX_PIN, TX_PIN); // RX, TX
+MCUFRIEND_kbv tft;
+int16_t wid, ht;
 
 int corRecebida = 0;
 bool travado = false;
 
 void setup() {
-  mySerial.begin(9600);
-  Serial.begin(9600);
+  Serial.begin(9600);    // Comunicação com o Arduino Mega
+
+  // Inicializa o display
+  uint16_t ID = tft.readID();
+  tft.begin(ID);
+  tft.setRotation(1);
+  tft.fillScreen(0x0000);  // Tela preta
+
+  wid = tft.width();
+  ht = tft.height();
+
+  // Inicializa o cartão SD
+  if (!SD.begin(SD_CS)) {
+    tft.setCursor(10, 10);
+    tft.setTextColor(0xF800); // Vermelho
+    tft.setTextSize(2);
+    tft.println("Falha no SD!");
+    while (1);
+  }
 }
 
 void loop() {
-  if (mySerial.available() > 0) {
-    int dado = mySerial.read();
+  if (Serial.available()) {
+    char dado = Serial.read();
 
-    if (dado == 0) {
-      // Comando de destravar
+    if (dado == '0') {
       travado = false;
-      Serial.println("Destravado, aguardando nova cor...");
+      tft.fillScreen(0x0000);  // Limpa a tela
+    } else if (dado == 'O') {
+      reforcoPositivo();
     } else if (!travado) {
       corRecebida = dado;
       travado = true;
 
-      // Mostra a cor recebida
-      Serial.print("Cor recebida e travada: ");
-      Serial.println(corRecebida);
-
-      // Aqui pode acionar um LED correspondente à cor
+      switch (corRecebida) {
+        case 'b': mostrarImagem("/baleia.bmp"); break;
+        case 'c': mostrarImagem("/cobra.bmp"); break;
+        case 'g': mostrarImagem("/gato.bmp"); break;
+        case 'o': mostrarImagem("/ovelha.bmp"); break;
+        case 'p': mostrarImagem("/pinto.bmp"); break;
+        case 'r': mostrarImagem("/porco.bmp"); break;
+        case 's': mostrarImagem("/sapo.bmp"); break;
+        case 't': mostrarImagem("/tigre.bmp"); break;
+        default:
+          tft.fillScreen(0x0000);
+          break;
+      }
     }
   }
+}
 
-  // Se travado, pode manter o LED ligado ou fazer outra ação
+void mostrarImagem(const char *nomeArquivo) {
+  tft.fillScreen(0x0000);
+
+  File bmpFile = SD.open(nomeArquivo);
+  if (!bmpFile) {
+    tft.setCursor(10, 10);
+    tft.setTextColor(0xF800); // Vermelho
+    tft.setTextSize(2);
+    tft.println("Erro imagem");
+    return;
+  }
+
+  bmpDraw(nomeArquivo, 0, 0);
+  bmpFile.close();
+}
+
+void reforcoPositivo() {
+  tft.fillScreen(0xFFFF); // Tela branca
+  tft.setTextColor(0x07E0); // Verde
+  tft.setTextSize(3);
+  tft.setCursor(30, ht / 2);
+  tft.println("PARABENS!");
+  delay(2000);
+  tft.fillScreen(0x0000);
+}
+
+// === Função para desenhar BMP ===
+#define BUFFPIXEL 20
+
+void bmpDraw(const char *filename, int x, int y) {
+  File bmpFile;
+  int bmpWidth, bmpHeight;
+  uint8_t bmpDepth;
+  uint32_t bmpImageoffset;
+  uint32_t rowSize;
+  uint8_t sdbuffer[3 * BUFFPIXEL];
+  uint16_t lcdbuffer[BUFFPIXEL];
+  uint8_t buffidx = sizeof(sdbuffer);
+  boolean goodBmp = false;
+  boolean flip = true;
+  int w, h, row, col;
+  uint8_t r, g, b;
+  uint32_t pos = 0;
+
+  bmpFile = SD.open(filename);
+  if (!bmpFile) {
+    Serial.println("Arquivo não encontrado");
+    return;
+  }
+
+  if (read16(bmpFile) == 0x4D42) {
+    (void)read32(bmpFile);
+    (void)read32(bmpFile);
+    bmpImageoffset = read32(bmpFile);
+    (void)read32(bmpFile);
+    bmpWidth = read32(bmpFile);
+    bmpHeight = read32(bmpFile);
+    if (read16(bmpFile) == 1) {
+      bmpDepth = read16(bmpFile);
+      if ((bmpDepth == 24) && (read32(bmpFile) == 0)) {
+        goodBmp = true;
+        rowSize = (bmpWidth * 3 + 3) & ~3;
+
+        if (bmpHeight < 0) {
+          bmpHeight = -bmpHeight;
+          flip = false;
+        }
+
+        w = bmpWidth;
+        h = bmpHeight;
+        if ((x + w - 1) >= tft.width())  w = tft.width() - x;
+        if ((y + h - 1) >= tft.height()) h = tft.height() - y;
+
+        tft.setAddrWindow(x, y, x + w - 1, y + h - 1);
+
+        for (row = 0; row < h; row++) {
+          if (flip) pos = bmpImageoffset + (bmpHeight - 1 - row) * rowSize;
+          else pos = bmpImageoffset + row * rowSize;
+
+          if (bmpFile.position() != pos) {
+            bmpFile.seek(pos);
+            buffidx = sizeof(sdbuffer);
+          }
+
+          for (col = 0; col < w; col++) {
+            if (buffidx >= sizeof(sdbuffer)) {
+              bmpFile.read(sdbuffer, sizeof(sdbuffer));
+              buffidx = 0;
+            }
+
+            b = sdbuffer[buffidx++];
+            g = sdbuffer[buffidx++];
+            r = sdbuffer[buffidx++];
+
+            lcdbuffer[col] = tft.color565(r, g, b);
+          }
+          tft.pushColors(lcdbuffer, w, 1);
+        }
+      }
+    }
+  }
+  bmpFile.close();
+}
+
+uint16_t read16(File &f) {
+  uint16_t result;
+  ((uint8_t *)&result)[0] = f.read();
+  ((uint8_t *)&result)[1] = f.read();
+  return result;
+}
+
+uint32_t read32(File &f) {
+  uint32_t result;
+  ((uint8_t *)&result)[0] = f.read();
+  ((uint8_t *)&result)[1] = f.read();
+  ((uint8_t *)&result)[2] = f.read();
+  ((uint8_t *)&result)[3] = f.read();
+  return result;
 }
