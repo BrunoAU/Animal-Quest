@@ -1,14 +1,15 @@
 import serial
 import pygame
 import os
+import time
 
-# Inicializa o mixer do pygame
+# === Inicializa o mixer do pygame ===
 pygame.mixer.init()
 
-# Pasta onde estão os sons
+# === Pasta onde estão os sons ===
 PASTA_SONS = os.path.join(os.path.dirname(__file__), 'sons')
 
-# Mapeamento de sons (ajuste conforme quiser)
+# === Mapeamento de sons ===
 sons = {
     "1": "Som_baleia.mp3",
     "2": "Som_cobra.mp3",
@@ -20,31 +21,47 @@ sons = {
     "8": "Som_tigre.mp3"
 }
 
-# Configuração da porta serial
-porta_serial = 'COM5'  # Altere conforme necessário
+# === Configuração da porta serial ===
+porta_serial = 'COM5'  # ⚠️ Ajuste conforme sua porta
 baud_rate = 9600
-ser = serial.Serial(porta_serial, baud_rate)
 
-print(f'Conectado à {porta_serial}, aguardando comando...')
+try:
+    ser = serial.Serial(porta_serial, baud_rate, timeout=1)
+    print(f'✅ Conectado à {porta_serial}, aguardando comandos...')
+except Exception as e:
+    print(f'❌ Erro ao conectar na porta {porta_serial}: {e}')
+    exit()
 
+# === Função para tocar som ===
+def tocar_som(codigo):
+    if codigo in sons:
+        caminho_som = os.path.join(PASTA_SONS, sons[codigo])
+        if os.path.exists(caminho_som):
+            print(f"🔊 Tocando som: {caminho_som}")
+            pygame.mixer.music.stop()
+            pygame.mixer.music.load(caminho_som)
+            pygame.mixer.music.play()
+        else:
+            print(f"⚠️ Arquivo não encontrado: {caminho_som}")
+    else:
+        print("⚠️ Código não mapeado para som.")
+
+# === Loop principal ===
 try:
     while True:
         if ser.in_waiting:
             linha = ser.readline().decode('utf-8').strip()
-            print(f"Recebido: {linha}")
+            if linha:
+                print(f"🎯 Recebido: {linha}")
 
-            if linha.startswith("COR:"):
-                cor = linha.split(":")[1].strip()
-                if cor in sons:
-                    caminho_som = os.path.join(PASTA_SONS, sons[cor])
-                    print(f"Tocando som: {caminho_som}")
-                    pygame.mixer.music.load(caminho_som)
-                    pygame.mixer.music.play()
-                    while pygame.mixer.music.get_busy():
-                        continue
-                else:
-                    print("Cor recebida não está mapeada para nenhum som.")
+                if linha.startswith("COR:"):
+                    cor = linha.split(":")[1].strip()
+                    tocar_som(cor)
+
+        time.sleep(0.05)  # Pequeno delay para não sobrecarregar CPU
+
 except KeyboardInterrupt:
-    print("Encerrando programa.")
+    print("🛑 Encerrando programa manualmente.")
 finally:
     ser.close()
+    print("🔌 Porta serial fechada.")
