@@ -7,61 +7,61 @@ import time
 pygame.mixer.init()
 
 # === Pasta onde estão os sons ===
-PASTA_SONS = os.path.join(os.path.dirname(__file__), 'sons')
+PASTA_SONS = r"C:\projetos\sons"
 
 # === Mapeamento de sons ===
 sons = {
-    "1": "Som_baleia.mp3",
-    "2": "Som_cobra.mp3",
-    "3": "Som_gato.mp3",
-    "4": "Som_ovelha.mp3",
-    "5": "Som_pintinho.mp3",
-    "6": "Som_porco.mp3",
-    "7": "Som_sapo.mp3",
-    "8": "Som_tigre.mp3"
+    "1": "Som_cobra.mp3",
+    "2": "Som_porco.mp3",
+    "3": "Som_tigre.mp3",
+    "4": "Som_baleia.mp3",
+    "5": "Som_sapo.mp3",
+    "6": "Som_gato.mp3",
+    "7": "Som_ovelha.mp3",
+    "8": "Som_pintinho.mp3"
 }
 
 # === Configuração da porta serial ===
-porta_serial = 'COM5'  # ⚠️ Ajuste conforme sua porta
+porta_serial = 'COM5'  # ⚠️ Ajuste conforme sua porta (ex.: COM3, COM7)
 baud_rate = 9600
 
 try:
     ser = serial.Serial(porta_serial, baud_rate, timeout=1)
-    print(f'✅ Conectado à {porta_serial}, aguardando comandos...')
+    print(f'✅ Conectado na porta {porta_serial}. Aguardando comandos...')
 except Exception as e:
-    print(f'❌ Erro ao conectar na porta {porta_serial}: {e}')
+    print(f'❌ Erro ao abrir a porta {porta_serial}: {e}')
     exit()
 
 # === Função para tocar som ===
 def tocar_som(codigo):
     if codigo in sons:
-        caminho_som = os.path.join(PASTA_SONS, sons[codigo])
-        if os.path.exists(caminho_som):
-            print(f"🔊 Tocando som: {caminho_som}")
+        caminho = os.path.join(PASTA_SONS, sons[codigo])
+        if os.path.exists(caminho):
+            print(f"🔊 Tocando som: {caminho}")
             pygame.mixer.music.stop()
-            pygame.mixer.music.load(caminho_som)
+            pygame.mixer.music.load(caminho)
             pygame.mixer.music.play()
         else:
-            print(f"⚠️ Arquivo não encontrado: {caminho_som}")
+            print(f"⚠️ Arquivo de som não encontrado: {caminho}")
     else:
-        print("⚠️ Código não mapeado para som.")
+        print(f"⚠️ Código '{codigo}' não mapeado para nenhum som.")
 
-# === Loop principal ===
+# === Loop Principal ===
 try:
     while True:
         if ser.in_waiting:
             linha = ser.readline().decode('utf-8').strip()
             if linha:
-                print(f"🎯 Recebido: {linha}")
+                print(f"📥 Recebido: {linha}")
 
                 if linha.startswith("COR:"):
                     cor = linha.split(":")[1].strip()
                     tocar_som(cor)
 
-        time.sleep(0.05)  # Pequeno delay para não sobrecarregar CPU
+        time.sleep(0.05)  # Delay curto para não sobrecarregar CPU
 
 except KeyboardInterrupt:
-    print("🛑 Encerrando programa manualmente.")
+    print("\n🛑 Encerrando programa manualmente...")
 finally:
     ser.close()
     print("🔌 Porta serial fechada.")
