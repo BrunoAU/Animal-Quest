@@ -1,5 +1,5 @@
 🟦 Código (Master-Mega)
-
+```cpp
 const int numCores = 8;
 const int numSlaves = 3;
 
@@ -131,11 +131,11 @@ void loop() {
   }
 }
 
-
+```
 
 
 Código (Slave-Unos)
-
+```cpp
 #include <SPI.h>
 #include <SD.h>
 #include <Adafruit_GFX.h>
@@ -366,3 +366,4 @@ uint8_t showBMP(char *nm, int x, int y) {
   bmpFile.close();
   return ret;
 }
+```
