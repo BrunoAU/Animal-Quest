@@ -1,13 +1,5 @@
-# Projeto Arduino Master–Slave
+🟦 Código (Master-Mega)
 
-Este repositório contém o código para o Arduino Mega (Master) e três Arduinos Uno (Slaves), exibindo imagens BMP num display TFT via SD.
-
----
-
-## Master (Mega)
-
-```cpp
-```cpp
 const int numCores = 8;
 const int numSlaves = 3;
 
@@ -56,46 +48,61 @@ void loop() {
     int coresTemp[numCores];
     memcpy(coresTemp, coresFixas, sizeof(coresTemp));
 
-    // Embaralha e seleciona as cores dos slaves
+    // Embaralha o vetor temporário para escolher as cores dos slaves
     embaralharCores(coresTemp, numCores);
     for (int i = 0; i < numSlaves; i++) {
       coresSelecionadas[i] = coresTemp[i];
     }
 
-    // Escolhe qual cor é a correta
+    // Define qual é a cor correta da rodada
     int indiceCorreta = random(numSlaves);
     corCorreta = coresSelecionadas[indiceCorreta];
 
-    // Envia o comando para cada slave
+    // Envia as letras para os slaves
     for (int i = 0; i < numSlaves; i++) {
       int cor = coresSelecionadas[i];
       char letra = letras[cor - 1];
-      if (i == 0)      Serial1.write(letra);
+
+      Serial.print("Enviando para slave ");
+      Serial.print(i + 1);
+      Serial.print(": cor ");
+      Serial.print(cor);
+      Serial.print(" -> letra: ");
+      Serial.println(letra);
+
+      if (i == 0) Serial1.write(letra);
       else if (i == 1) Serial2.write(letra);
       else if (i == 2) Serial3.write(letra);
     }
 
-    tentativasRestantes = 2;
-    aguardandoAcerto = true;
     Serial.print("Cor correta: ");
     Serial.println(corCorreta);
+
+    tentativasRestantes = 2;
+    aguardandoAcerto = true;
     Serial.println("Aguardando tentativa...");
   }
 
-  // Verifica tentativas de acerto
   if (aguardandoAcerto) {
     for (int i = 0; i < numCores; i++) {
       if (digitalRead(botoes[i]) == LOW) {
-        delay(200);  // debounce
-        int tentativa = i + 1;
-        Serial.print("Tentativa: ");
+        delay(200); // debounce
+
+        char letra = letras[i];
+        int tentativa = i + 1;  // i + 1 corresponde à cor correta (1 a 8)
+
+        Serial.print("Botao pressionado: ");
+        Serial.print(letra);
+        Serial.print(" -> Tentativa: ");
         Serial.println(tentativa);
 
         if (tentativa == corCorreta) {
-          Serial.println("Acertou!");
+          Serial.println("Parabéns, você acertou!");
+
           Serial1.write(0);
           Serial2.write(0);
           Serial3.write(0);
+
           aguardandoAcerto = false;
           delay(2000);
         } else {
@@ -103,18 +110,22 @@ void loop() {
           if (tentativasRestantes > 0) {
             Serial.print("Errou! Restam ");
             Serial.print(tentativasRestantes);
-            Serial.println(" tentativas.");
+            Serial.println(" tentativa(s).");
           } else {
             Serial.println("Fim de tentativas. Reiniciando...");
+
             Serial1.write(0);
             Serial2.write(0);
             Serial3.write(0);
+
             aguardandoAcerto = false;
             delay(2000);
           }
         }
-        // Espera o botão ser solto
-        while (digitalRead(botoes[i]) == LOW) delay(200);
+
+        while (digitalRead(botoes[i]) == LOW) {
+          delay(200);
+        }
       }
     }
   }
@@ -123,13 +134,8 @@ void loop() {
 
 
 
+Código (Slave-Unos)
 
-
----
-
-## Slave (Uno)
-
-```cpp
 #include <SPI.h>
 #include <SD.h>
 #include <Adafruit_GFX.h>
@@ -144,7 +150,7 @@ MCUFRIEND_kbv tft;
 
 #define PALETTEDEPTH   0
 
-// Arquivos BMP para cada comando
+// === Lista dos arquivos BMP ===
 const char* animalFiles[] = {
   "/gato.bmp",    // g
   "/baleia.bmp",  // b
@@ -155,43 +161,62 @@ const char* animalFiles[] = {
   "/sapo.bmp",    // s
   "/tigre.bmp"    // t
 };
-const char comandos[] = {'g','b','c','o','p','r','s','t'};
+
+// === Lista dos comandos correspondentes ===
+const char comandos[] = {'g', 'b', 'c', 'o', 'p', 'r', 's', 't'};
 const int animalCount = sizeof(animalFiles) / sizeof(animalFiles[0]);
 
 void setup() {
+  uint16_t ID;
   Serial.begin(9600);
-  Serial.println("===== COMANDOS =====");
-  Serial.println("g=Gato b=Baleia c=Cobra o=Ovelha");
-  Serial.println("p=Pinto r=Porco s=Sapo t=Tigre x=Limpar");
-  Serial.println("====================");
-
-  uint16_t ID = tft.readID();
+  Serial.println("===== COMANDOS DISPONÍVEIS =====");
+  Serial.println("g = Gato | b = Baleia | c = Cobra | o = Ovelha");
+  Serial.println("p = Pintinho | r = Porco | s = Sapo | t = Tigre");
+  Serial.println("x = Limpar tela");
+  Serial.println("=================================");
+  
+  ID = tft.readID();
   if (ID == 0x0D3D3) ID = 0x9481;
   tft.begin(ID);
-  tft.fillScreen(0x0000);
+  tft.fillScreen(0x0000);  // Limpa a tela
 
   if (!SD.begin(SD_CS)) {
-    Serial.println("Falha no SD!");
+    Serial.println(F("Falha ao iniciar o cartão SD"));
     while (1);
   }
 }
 
 void loop() {
-  if (Serial.available()) {
-    char cmd = Serial.read();
-    if (cmd == 'x') {
+  if (Serial.available() > 0) {
+    char comando = Serial.read();
+
+    if (comando == 'x') {
       tft.fillScreen(0x0000);
       Serial.println("Tela limpa.");
       return;
     }
+
+    // Busca o comando na lista
+    bool encontrado = false;
     for (int i = 0; i < animalCount; i++) {
-      if (cmd == comandos[i]) {
-        Serial.print("Exibindo ");
-        Serial.println(animalFiles[i]);
+      if (comando == comandos[i]) {
+        const char* filename = animalFiles[i];
+        Serial.print("Exibindo: ");
+        Serial.println(filename);
+
         tft.fillScreen(0x0000);
-        showBMP((char*)animalFiles[i], 5, 5);
+        uint8_t ret = showBMP((char*)filename, 5, 5);
+        if (ret != 0) {
+          Serial.print("Erro ao exibir BMP. Código: ");
+          Serial.println(ret);
+        }
+        encontrado = true;
         break;
       }
+    }
+
+    if (!encontrado) {
+      Serial.println("Comando inválido.");
     }
   }
 }
@@ -201,48 +226,143 @@ void loop() {
 #define BUFFPIXEL 20
 
 uint16_t read16(File& f) {
-  uint16_t r; f.read((uint8_t*)&r, sizeof(r)); return r;
+  uint16_t result;
+  f.read((uint8_t*)&result, sizeof(result));
+  return result;
 }
 
 uint32_t read32(File& f) {
-  uint32_t r; f.read((uint8_t*)&r, sizeof(r)); return r;
+  uint32_t result;
+  f.read((uint8_t*)&result, sizeof(result));
+  return result;
 }
 
 uint8_t showBMP(char *nm, int x, int y) {
-  File bmpFile = SD.open(nm);
+  File bmpFile;
+  int bmpWidth, bmpHeight;
+  uint8_t bmpDepth;
+  uint32_t bmpImageoffset;
+  uint32_t rowSize;
+  uint8_t sdbuffer[3 * BUFFPIXEL];
+  uint16_t lcdbuffer[(1 << PALETTEDEPTH) + BUFFPIXEL], *palette = NULL;
+  uint8_t bitmask, bitshift;
+  boolean flip = true;
+  int w, h, row, col, lcdbufsiz = (1 << PALETTEDEPTH) + BUFFPIXEL, buffidx;
+  uint32_t pos;
+  boolean is565 = false;
+  uint16_t bmpID;
+  uint16_t n;
+  uint8_t ret;
+
+  if ((x >= tft.width()) || (y >= tft.height()))
+    return 1;
+
+  bmpFile = SD.open(nm);
   if (!bmpFile) return 2;
-  if (read16(bmpFile) != 0x4D42) return 2;
-  uint32_t bmpImageoffset = read32(bmpFile);
-  int bmpWidth  = read32(bmpFile);
-  int bmpHeight = read32(bmpFile);
-  read16(bmpFile); // planes
-  uint16_t bmpDepth = read16(bmpFile);
-  uint32_t pos = read32(bmpFile);
-  bool flip = true;
-  if (bmpHeight < 0) { bmpHeight = -bmpHeight; flip = false; }
-  
-  uint32_t rowSize = (bmpWidth * bmpDepth/8 + 3) & ~3;
-  tft.setAddrWindow(x, y, x + bmpWidth - 1, y + bmpHeight - 1);
-  
-  uint8_t sdbuf[3*BUFFPIXEL];
-  uint16_t lcdbuf[BUFFPIXEL];
-  for (int row=0; row<bmpHeight; row++) {
-    uint32_t rowPos = bmpImageoffset + (flip
-      ? (bmpHeight-1-row)*rowSize
-      : row*rowSize);
-    if (bmpFile.position() != rowPos) {
-      bmpFile.seek(rowPos);
+
+  bmpID = read16(bmpFile);
+  (void) read32(bmpFile);
+  (void) read32(bmpFile);
+  bmpImageoffset = read32(bmpFile);
+  (void) read32(bmpFile);
+  bmpWidth = read32(bmpFile);
+  bmpHeight = read32(bmpFile);
+  n = read16(bmpFile);
+  bmpDepth = read16(bmpFile);
+  pos = read32(bmpFile);
+
+  if (bmpID != 0x4D42) ret = 2;
+  else if (n != 1) ret = 3;
+  else if (pos != 0 && pos != 3) ret = 4;
+  else if (bmpDepth < 16 && bmpDepth > PALETTEDEPTH) ret = 5;
+  else {
+    bool first = true;
+    is565 = (pos == 3);
+    rowSize = (bmpWidth * bmpDepth / 8 + 3) & ~3;
+    if (bmpHeight < 0) {
+      bmpHeight = -bmpHeight;
+      flip = false;
     }
-    for (int col=0; col<bmpWidth; col+=BUFFPIXEL) {
-      int toRead = min(BUFFPIXEL, bmpWidth-col);
-      bmpFile.read(sdbuf, 3*toRead);
-      for (int i=0; i<toRead; i++) {
-        uint8_t b=sdbuf[3*i], g=sdbuf[3*i+1], r=sdbuf[3*i+2];
-        lcdbuf[i] = tft.color565(r,g,b);
+
+    w = bmpWidth;
+    h = bmpHeight;
+    if ((x + w) >= tft.width()) w = tft.width() - x;
+    if ((y + h) >= tft.height()) h = tft.height() - y;
+
+    if (bmpDepth <= PALETTEDEPTH) {
+      bmpFile.seek(bmpImageoffset - (4 << bmpDepth));
+      bitmask = 0xFF;
+      if (bmpDepth < 8) bitmask >>= bmpDepth;
+      bitshift = 8 - bmpDepth;
+      n = 1 << bmpDepth;
+      lcdbufsiz -= n;
+      palette = lcdbuffer + lcdbufsiz;
+      for (col = 0; col < n; col++) {
+        pos = read32(bmpFile);
+        palette[col] = ((pos & 0x0000F8) >> 3) | ((pos & 0x00FC00) >> 5) | ((pos & 0xF80000) >> 8);
       }
-      tft.pushColors(lcdbuf, toRead, col==0 && row==0);
     }
+
+    tft.setAddrWindow(x, y, x + w - 1, y + h - 1);
+    for (row = 0; row < h; row++) {
+      uint8_t r, g, b, *sdptr;
+      int lcdidx, lcdleft;
+
+      if (flip) pos = bmpImageoffset + (bmpHeight - 1 - row) * rowSize;
+      else pos = bmpImageoffset + row * rowSize;
+
+      if (bmpFile.position() != pos) {
+        bmpFile.seek(pos);
+        buffidx = sizeof(sdbuffer);
+      }
+
+      for (col = 0; col < w;) {
+        lcdleft = w - col;
+        if (lcdleft > lcdbufsiz) lcdleft = lcdbufsiz;
+        for (lcdidx = 0; lcdidx < lcdleft; lcdidx++) {
+          uint16_t color;
+          if (buffidx >= sizeof(sdbuffer)) {
+            bmpFile.read(sdbuffer, sizeof(sdbuffer));
+            buffidx = 0;
+            r = 0;
+          }
+          switch (bmpDepth) {
+            case 32:
+            case 24:
+              b = sdbuffer[buffidx++];
+              g = sdbuffer[buffidx++];
+              r = sdbuffer[buffidx++];
+              if (bmpDepth == 32) buffidx++;
+              color = tft.color565(r, g, b);
+              break;
+            case 16:
+              b = sdbuffer[buffidx++];
+              r = sdbuffer[buffidx++];
+              if (is565)
+                color = (r << 8) | (b);
+              else
+                color = (r << 9) | ((b & 0xE0) << 1) | (b & 0x1F);
+              break;
+            case 1:
+            case 4:
+            case 8:
+              if (r == 0)
+                b = sdbuffer[buffidx++], r = 8;
+              color = palette[(b >> bitshift) & bitmask];
+              r -= bmpDepth;
+              b <<= bmpDepth;
+              break;
+          }
+          lcdbuffer[lcdidx] = color;
+        }
+        tft.pushColors(lcdbuffer, lcdidx, first);
+        first = false;
+        col += lcdidx;
+      }
+    }
+    tft.setAddrWindow(0, 0, tft.width() - 1, tft.height() - 1);
+    ret = 0;
   }
   bmpFile.close();
-  return 0;
+  return ret;
 }
