@@ -1,136 +1,121 @@
 🟦 Código (Master-Mega)
 
-const int numCores = 8;
-const int numSlaves = 3;
+#include <SPI.h>
+#include <SD.h>
+#include <Adafruit_GFX.h>
+#include <MCUFRIEND_kbv.h>
+MCUFRIEND_kbv tft;
 
-// Cores fixas: 1 = vermelho(cobra), 2 = rosa(porco), 3 = laranja(tigre), 4 = azul(baleia), 
-// 5 = verde(sapo), 6 = preto(gato), 7 = branco(ovelha), 8 = amarelo(pinto)
-const int coresFixas[numCores] = {1, 2, 3, 4, 5, 6, 7, 8};
+const int numCores    = 8;
+const int numSlaves   = 3;
+
+// Cores fixas: 1=vermelho(cobra), 2=rosa(porco), 3=laranja(tigre),
+// 4=azul(baleia), 5=verde(sapo), 6=preto(gato),
+// 7=branco(ovelha), 8=amarelo(pinto)
+const int coresFixas[numCores] = {1,2,3,4,5,6,7,8};
 
 int coresSelecionadas[numSlaves];
 int corCorreta = 0;
 bool aguardandoAcerto = false;
 int tentativasRestantes = 0;
 
-// === Mapeamento dos botões (fixo) ===
-const int botoes[numCores] = {2, 3, 4, 5, 6, 7, 8, 9};
+// Botões no Mega: mantém a ordem de cores 1–8
+const int botoes[numCores] = {31, 33, 35, 37, 39, 41, 43, 45};
 
-// === Mapeamento das letras ===
-// b = baleia(4), c = cobra(1), g = gato(6), o = ovelha(7),
-// p = pinto(8), r = porco(2), s = sapo(5), t = tigre(3)
-const char letras[numCores] = {'c', 'r', 't', 'b', 's', 'g', 'o', 'p'};
+// Letras enviadas aos Slaves (z = parabéns)
+const char letras[numCores+1] = {'c','r','t','b','s','g','o','p','z'};
 
-void embaralharCores(int vetor[], int tamanho) {
-  for (int i = tamanho - 1; i > 0; i--) {
+void embaralharCores(int vetor[], int tam) {
+  for (int i = tam - 1; i > 0; i--) {
     int j = random(i + 1);
-    int temp = vetor[i];
+    int tmp = vetor[i];
     vetor[i] = vetor[j];
-    vetor[j] = temp;
+    vetor[j] = tmp;
   }
 }
 
 void setup() {
-  Serial.begin(9600);
-  Serial1.begin(9600);
-  Serial2.begin(9600);
-  Serial3.begin(9600);
+  Serial.begin(9600);    // USB → Python
+  Serial1.begin(9600);   // Mega → Slave 1 (Uno)
+  Serial2.begin(9600);   // Mega → Slave 2
+  Serial3.begin(9600);   // Mega → Slave 3
 
   for (int i = 0; i < numCores; i++) {
     pinMode(botoes[i], INPUT_PULLUP);
   }
-
   randomSeed(analogRead(0));
 }
 
 void loop() {
   if (!aguardandoAcerto) {
-    // Copia as cores fixas para um vetor temporário
-    int coresTemp[numCores];
-    memcpy(coresTemp, coresFixas, sizeof(coresTemp));
-
-    // Embaralha o vetor temporário para escolher as cores dos slaves
-    embaralharCores(coresTemp, numCores);
+    // Embaralha coresFixas e escolhe as primeiras 3 para os Slaves
+    int temp[numCores];
+    memcpy(temp, coresFixas, sizeof(temp));
+    embaralharCores(temp, numCores);
     for (int i = 0; i < numSlaves; i++) {
-      coresSelecionadas[i] = coresTemp[i];
+      coresSelecionadas[i] = temp[i];
     }
 
-    // Define qual é a cor correta da rodada
-    int indiceCorreta = random(numSlaves);
-    corCorreta = coresSelecionadas[indiceCorreta];
+    // Escolhe a cor correta dentre as 3
+    int idx = random(numSlaves);
+    corCorreta = coresSelecionadas[idx];
 
-    // Envia as letras para os slaves
+    // Envia comando (letra) a cada Slave
     for (int i = 0; i < numSlaves; i++) {
-      int cor = coresSelecionadas[i];
-      char letra = letras[cor - 1];
-
-      Serial.print("Enviando para slave ");
-      Serial.print(i + 1);
-      Serial.print(": cor ");
-      Serial.print(cor);
-      Serial.print(" -> letra: ");
-      Serial.println(letra);
-
-      if (i == 0) Serial1.write(letra);
-      else if (i == 1) Serial2.write(letra);
-      else if (i == 2) Serial3.write(letra);
+      char cmd = letras[coresSelecionadas[i] - 1];
+      if (i == 0)      Serial1.write(cmd);
+      else if (i == 1) Serial2.write(cmd);
+      else if (i == 2) Serial3.write(cmd);
     }
 
+    // Informa no USB (Python) a cor correta
     Serial.print("Cor correta: ");
+    Serial.println(corCorreta);
+    Serial.print("COR:");     
     Serial.println(corCorreta);
 
     tentativasRestantes = 2;
     aguardandoAcerto = true;
-    Serial.println("Aguardando tentativa...");
   }
 
+  // Aguarda entrada do usuário via botões
   if (aguardandoAcerto) {
     for (int i = 0; i < numCores; i++) {
       if (digitalRead(botoes[i]) == LOW) {
-        delay(200); // debounce
-
-        char letra = letras[i];
-        int tentativa = i + 1;  // i + 1 corresponde à cor correta (1 a 8)
-
-        Serial.print("Botao pressionado: ");
-        Serial.print(letra);
-        Serial.print(" -> Tentativa: ");
-        Serial.println(tentativa);
+        delay(200);  // debounce
+        int tentativa = i + 1;
 
         if (tentativa == corCorreta) {
-          Serial.println("Parabéns, você acertou!");
-
-          Serial1.write(0);
-          Serial2.write(0);
-          Serial3.write(0);
-
+          // acerto: envia sinal de parabéns ('z')
+          Serial1.write('z');
+          Serial2.write('z');
+          Serial3.write('z');
           aguardandoAcerto = false;
           delay(2000);
         } else {
+          // erro
           tentativasRestantes--;
           if (tentativasRestantes > 0) {
-            Serial.print("Errou! Restam ");
-            Serial.print(tentativasRestantes);
-            Serial.println(" tentativa(s).");
+            Serial.println("Errou");
           } else {
-            Serial.println("Fim de tentativas. Reiniciando...");
-
-            Serial1.write(0);
-            Serial2.write(0);
-            Serial3.write(0);
-
+            Serial.println("Fim de tentativas");
+            // limpa ou sinaliza fim (x)
+            Serial1.write('x');
+            Serial2.write('x');
+            Serial3.write('x');
             aguardandoAcerto = false;
             delay(2000);
           }
         }
 
+        // espera o botão ser solto
         while (digitalRead(botoes[i]) == LOW) {
-          delay(200);
+          delay(30);
         }
       }
     }
   }
 }
-
 
 
 
@@ -140,6 +125,7 @@ Código (Slave-Unos)
 #include <SD.h>
 #include <Adafruit_GFX.h>
 #include <MCUFRIEND_kbv.h>
+
 MCUFRIEND_kbv tft;
 
 #if defined(ESP32)
@@ -159,71 +145,17 @@ const char* animalFiles[] = {
   "/pinto.bmp",   // p
   "/porco.bmp",   // r
   "/sapo.bmp",    // s
-  "/tigre.bmp"    // t
+  "/tigre.bmp",   // t
+  "/parabens.bmp" // z
 };
 
 // === Lista dos comandos correspondentes ===
-const char comandos[] = {'g', 'b', 'c', 'o', 'p', 'r', 's', 't'};
+const char comandos[] = {'g', 'b', 'c', 'o', 'p', 'r', 's', 't', 'z'};
 const int animalCount = sizeof(animalFiles) / sizeof(animalFiles[0]);
 
-void setup() {
-  uint16_t ID;
-  Serial.begin(9600);
-  Serial.println("===== COMANDOS DISPONÍVEIS =====");
-  Serial.println("g = Gato | b = Baleia | c = Cobra | o = Ovelha");
-  Serial.println("p = Pintinho | r = Porco | s = Sapo | t = Tigre");
-  Serial.println("x = Limpar tela");
-  Serial.println("=================================");
-  
-  ID = tft.readID();
-  if (ID == 0x0D3D3) ID = 0x9481;
-  tft.begin(ID);
-  tft.fillScreen(0x0000);  // Limpa a tela
-
-  if (!SD.begin(SD_CS)) {
-    Serial.println(F("Falha ao iniciar o cartão SD"));
-    while (1);
-  }
-}
-
-void loop() {
-  if (Serial.available() > 0) {
-    char comando = Serial.read();
-
-    if (comando == 'x') {
-      tft.fillScreen(0x0000);
-      Serial.println("Tela limpa.");
-      return;
-    }
-
-    // Busca o comando na lista
-    bool encontrado = false;
-    for (int i = 0; i < animalCount; i++) {
-      if (comando == comandos[i]) {
-        const char* filename = animalFiles[i];
-        Serial.print("Exibindo: ");
-        Serial.println(filename);
-
-        tft.fillScreen(0x0000);
-        uint8_t ret = showBMP((char*)filename, 5, 5);
-        if (ret != 0) {
-          Serial.print("Erro ao exibir BMP. Código: ");
-          Serial.println(ret);
-        }
-        encontrado = true;
-        break;
-      }
-    }
-
-    if (!encontrado) {
-      Serial.println("Comando inválido.");
-    }
-  }
-}
-
-// === Funções auxiliares ===
+// === Funções auxiliares para leitura de BMP ===
 #define BMPIMAGEOFFSET 54
-#define BUFFPIXEL 20
+#define BUFFPIXEL      20
 
 uint16_t read16(File& f) {
   uint16_t result;
@@ -254,8 +186,7 @@ uint8_t showBMP(char *nm, int x, int y) {
   uint16_t n;
   uint8_t ret;
 
-  if ((x >= tft.width()) || (y >= tft.height()))
-    return 1;
+  if ((x >= tft.width()) || (y >= tft.height())) return 1;
 
   bmpFile = SD.open(nm);
   if (!bmpFile) return 2;
@@ -284,15 +215,19 @@ uint8_t showBMP(char *nm, int x, int y) {
       flip = false;
     }
 
+    // Inverte a orientação caso a imagem saia invertida
+    // Descomente a linha abaixo se precisar forçar a inversão vertical:
+    // flip = !flip;
+
     w = bmpWidth;
     h = bmpHeight;
-    if ((x + w) >= tft.width()) w = tft.width() - x;
+    if ((x + w) >= tft.width())  w = tft.width() - x;
     if ((y + h) >= tft.height()) h = tft.height() - y;
 
     if (bmpDepth <= PALETTEDEPTH) {
       bmpFile.seek(bmpImageoffset - (4 << bmpDepth));
       bitmask = 0xFF;
-      if (bmpDepth < 8) bitmask >>= bmpDepth;
+      if (bmpDepth < 8)  bitmask >>= bmpDepth;
       bitshift = 8 - bmpDepth;
       n = 1 << bmpDepth;
       lcdbufsiz -= n;
@@ -305,11 +240,11 @@ uint8_t showBMP(char *nm, int x, int y) {
 
     tft.setAddrWindow(x, y, x + w - 1, y + h - 1);
     for (row = 0; row < h; row++) {
-      uint8_t r, g, b, *sdptr;
+      uint8_t r, g, b;
       int lcdidx, lcdleft;
 
       if (flip) pos = bmpImageoffset + (bmpHeight - 1 - row) * rowSize;
-      else pos = bmpImageoffset + row * rowSize;
+      else      pos = bmpImageoffset + row * rowSize;
 
       if (bmpFile.position() != pos) {
         bmpFile.seek(pos);
@@ -338,20 +273,16 @@ uint8_t showBMP(char *nm, int x, int y) {
             case 16:
               b = sdbuffer[buffidx++];
               r = sdbuffer[buffidx++];
-              if (is565)
-                color = (r << 8) | (b);
-              else
-                color = (r << 9) | ((b & 0xE0) << 1) | (b & 0x1F);
+              color = is565 ? (r << 8) | b : (r << 9) | ((b & 0xE0) << 1) | (b & 0x1F);
               break;
-            case 1:
-            case 4:
-            case 8:
-              if (r == 0)
-                b = sdbuffer[buffidx++], r = 8;
+            default:
+              if (r == 0) {
+                b = sdbuffer[buffidx++];
+                r = 8;
+              }
               color = palette[(b >> bitshift) & bitmask];
               r -= bmpDepth;
               b <<= bmpDepth;
-              break;
           }
           lcdbuffer[lcdidx] = color;
         }
@@ -365,4 +296,59 @@ uint8_t showBMP(char *nm, int x, int y) {
   }
   bmpFile.close();
   return ret;
+}
+
+void setup() {
+  uint16_t ID;
+  Serial.begin(9600);
+  Serial.println("===== COMANDOS DISPONÍVEIS =====");
+  Serial.println("g = Gato | b = Baleia | c = Cobra | o = Ovelha | p = Pintinho");
+  Serial.println("r = Porco | s = Sapo | t = Tigre | z = Parabéns | x = Limpar tela");
+  Serial.println("=================================");
+  
+  ID = tft.readID();
+  if (ID == 0x0D3D3) ID = 0x9481;
+  tft.begin(ID);
+  // Ajusta rotação da tela se as imagens saírem invertidas
+  tft.setRotation(0);  
+  tft.fillScreen(0x0000);
+
+  if (!SD.begin(SD_CS)) {
+    Serial.println(F("Falha ao iniciar o cartão SD"));
+    while (1);
+  }
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    char comando = Serial.read();
+
+    if (comando == 'x') {
+      tft.fillScreen(0x0000);
+      Serial.println("Tela limpa.");
+      return;
+    }
+
+    bool encontrado = false;
+    for (int i = 0; i < animalCount; i++) {
+      if (comando == comandos[i]) {
+        const char* filename = animalFiles[i];
+        Serial.print("Exibindo: ");
+        Serial.println(filename);
+
+        tft.fillScreen(0x0000);
+        uint8_t ret = showBMP((char*)filename, 5, 5);
+        if (ret != 0) {
+          Serial.print("Erro ao exibir BMP. Código: ");
+          Serial.println(ret);
+        }
+        encontrado = true;
+        break;
+      }
+    }
+
+    if (!encontrado) {
+      Serial.println("Comando inválido.");
+    }
+  }
 }
