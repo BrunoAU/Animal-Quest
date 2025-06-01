@@ -1,0 +1,118 @@
+🟦 Código (Master-Mega)
+
+#include <SPI.h>
+#include <SD.h>
+#include <Adafruit_GFX.h>
+#include <MCUFRIEND_kbv.h>
+MCUFRIEND_kbv tft;
+
+const int numCores    = 8;
+const int numSlaves   = 3;
+
+// Cores fixas: 1=vermelho(cobra), 2=rosa(porco), 3=laranja(tigre),
+// 4=azul(baleia), 5=verde(sapo), 6=preto(gato),
+// 7=branco(ovelha), 8=amarelo(pinto)
+const int coresFixas[numCores] = {1,2,3,4,5,6,7,8};
+
+int coresSelecionadas[numSlaves];
+int corCorreta = 0;
+bool aguardandoAcerto = false;
+int tentativasRestantes = 0;
+
+// Botões no Mega: mantém a ordem de cores 1–8
+const int botoes[numCores] = {31, 33, 35, 37, 39, 41, 43, 45};
+
+// Letras enviadas aos Slaves (z = parabéns)
+const char letras[numCores+1] = {'c','r','t','b','s','g','o','p','z'};
+
+void embaralharCores(int vetor[], int tam) {
+  for (int i = tam - 1; i > 0; i--) {
+    int j = random(i + 1);
+    int tmp = vetor[i];
+    vetor[i] = vetor[j];
+    vetor[j] = tmp;
+  }
+}
+
+void setup() {
+  Serial.begin(9600);    // USB → Python
+  Serial1.begin(9600);   // Mega → Slave 1 (Uno)
+  Serial2.begin(9600);   // Mega → Slave 2
+  Serial3.begin(9600);   // Mega → Slave 3
+
+  for (int i = 0; i < numCores; i++) {
+    pinMode(botoes[i], INPUT_PULLUP);
+  }
+  randomSeed(analogRead(0));
+}
+
+void loop() {
+  if (!aguardandoAcerto) {
+    // Embaralha coresFixas e escolhe as primeiras 3 para os Slaves
+    int temp[numCores];
+    memcpy(temp, coresFixas, sizeof(temp));
+    embaralharCores(temp, numCores);
+    for (int i = 0; i < numSlaves; i++) {
+      coresSelecionadas[i] = temp[i];
+    }
+
+    // Escolhe a cor correta dentre as 3
+    int idx = random(numSlaves);
+    corCorreta = coresSelecionadas[idx];
+
+    // Envia comando (letra) a cada Slave
+    for (int i = 0; i < numSlaves; i++) {
+      char cmd = letras[coresSelecionadas[i] - 1];
+      if (i == 0)      Serial1.write(cmd);
+      else if (i == 1) Serial2.write(cmd);
+      else if (i == 2) Serial3.write(cmd);
+    }
+
+    // Informa no USB (Python) a cor correta
+    Serial.print("Cor correta: ");
+    Serial.println(corCorreta);
+    Serial.print("COR:");     
+    Serial.println(corCorreta);
+
+    tentativasRestantes = 2;
+    aguardandoAcerto = true;
+  }
+
+  // Aguarda entrada do usuário via botões
+  if (aguardandoAcerto) {
+    for (int i = 0; i < numCores; i++) {
+      if (digitalRead(botoes[i]) == LOW) {
+        delay(200);  // debounce
+        int tentativa = i + 1;
+
+        if (tentativa == corCorreta) {
+          // acerto: envia sinal de parabéns ('z')
+          Serial1.write('z');
+          Serial2.write('z');
+          Serial3.write('z');
+          aguardandoAcerto = false;
+          delay(2000);
+        } else {
+          // erro
+          tentativasRestantes--;
+          if (tentativasRestantes > 0) {
+            Serial.println("Errou");
+          } else {
+            Serial.println("Fim de tentativas");
+            // limpa ou sinaliza fim (x)
+            Serial1.write('x');
+            Serial2.write('x');
+            Serial3.write('x');
+            aguardandoAcerto = false;
+            delay(2000);
+          }
+        }
+
+        // espera o botão ser solto
+        while (digitalRead(botoes[i]) == LOW) {
+          delay(30);
+        }
+      }
+    }
+  }
+}
