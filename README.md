@@ -46,6 +46,14 @@ Adivinhar a **cor do botão** correspondente ao **som do animal** reproduzido. O
 pip install pyserial
 pip install pygame
 ```
+#### 📦 Bibliotecas Arduino Necessárias
+
+```bash
+<SPI.h>
+<SD.h>
+<Adafruit_GFX.h>
+<MCUFRIEND_kbv.h>
+```
 
 ---
 
